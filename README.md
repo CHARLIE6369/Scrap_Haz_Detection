@@ -32,7 +32,5 @@ python inferance.py
 Trained using YOLOv9t (nano) on a custom Roboflow dataset with 2 classes, over 50 epochs.
 
 ## Live Demo
-[Add your deployed web app link here]
+(http://localhost:5173)
 
-## Documentation
-[Add link to report/presentation if available]
