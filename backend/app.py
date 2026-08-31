@@ -52,7 +52,16 @@ def create_app():
 
 app = create_app()
 
+print("\n========== REGISTERED ROUTES ==========")
+for rule in app.url_map.iter_rules():
+    print(rule)
+print("=======================================\n")
+
 if __name__ == "__main__":
     print(f"🚀 Starting YOLO API Server on http://{Config.FLASK_HOST}:{Config.FLASK_PORT}")
-    # Disable reloader to prevent double-loading PyTorch model on Windows
-    app.run(host=Config.FLASK_HOST, port=Config.FLASK_PORT, debug=False, use_reloader=False)
+    app.run(
+        host=Config.FLASK_HOST,
+        port=Config.FLASK_PORT,
+        debug=False,
+        use_reloader=False
+    )
