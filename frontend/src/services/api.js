@@ -34,43 +34,71 @@ export const getModelInfo = async () => {
   }
 };
 
-export const detectObjects = async (payload, isFormData = true, confidence = 0.5) => {
+export const detectObjects = async (
+  payload,
+  isFormData = true,
+  confidence = 0.5
+) => {
   try {
     let response;
+
     if (isFormData) {
-      // payload is FormData containing 'image' and optionally 'confidence'
       if (!payload.has('confidence')) {
         payload.append('confidence', confidence);
       }
+
       response = await apiClient.post('/api/detect', payload, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
     } else {
-      // payload is JSON object { image: base64_str, confidence: confidence }
-      response = await apiClient.post('/api/detect', {
-        image: payload.image,
-        confidence: confidence,
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
+      response = await apiClient.post(
+        '/api/detect',
+        {
+          image: payload.image,
+          confidence: confidence,
         },
-      });
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
+
+    console.log('DETECTION RESPONSE:', response.data);
 
     return response.data;
-  } catch (error) {
-    if (!error.response) {
-      throw new Error('Unable to connect to the YOLO backend. Make sure the Flask server is running on ' + API_BASE_URL);
-    }
-    const backendErr = error.response.data?.error || error.response.data?.message;
-    throw new Error(backendErr || 'An error occurred during object detection.');
-  }
-};
 
-export default {
-  checkHealth,
-  getModelInfo,
-  detectObjects,
+  } catch (error) {
+
+    console.error('========== DETECTION ERROR ==========');
+    console.error('API URL:', API_BASE_URL);
+    console.error('Error:', error);
+    console.error('Code:', error.code);
+    console.error('Message:', error.message);
+    console.error('Response:', error.response);
+    console.error('Response data:', error.response?.data);
+    console.error('Response status:', error.response?.status);
+    console.error('Request:', error.request);
+    console.error('======================================');
+
+    if (error.response) {
+      const backendError =
+        error.response.data?.error ||
+        error.response.data?.message ||
+        `Backend returned HTTP ${error.response.status}`;
+
+      throw new Error(backendError);
+    }
+
+    if (error.code === 'ECONNABORTED') {
+      throw new Error('Detection request timed out. CPU inference may take longer on Render.');
+    }
+
+    throw new Error(
+      `Unable to connect to the YOLO backend at ${API_BASE_URL}`
+    );
+  }
 };
