@@ -39,16 +39,16 @@ def create_app():
     # ========================================================
     # CORS
     # ========================================================
-
     CORS(
-        app,
-        resources={
-            r"/*": {
-                "origins": "*"
-            }
+    app,
+    resources={
+        r"/api/*": {
+            "origins": "*",
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
         }
-    )
-
+    }
+)
     # ========================================================
     # Register Detection Blueprint
     # ========================================================
