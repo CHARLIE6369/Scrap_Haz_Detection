@@ -14,39 +14,30 @@ import { checkHealth } from '../services/api';
 const Header = () => {
   const [backendStatus, setBackendStatus] = useState('checking');
 
-  useEffect(() => {
-    const pollHealth = async () => {
-      try {
-        const res = await checkHealth();
+useEffect(() => {
+  const pollHealth = async () => {
+    try {
+      const res = await checkHealth();
 
-        console.log('Health API response:', res);
+      console.log('Render API health:', res);
 
-        // Backend response:
-        // {
-        //   success: true,
-        //   data: {
-        //     status: "ok",
-        //     model_loaded: true
-        //   }
-        // }
-
-        if (res?.success === true && res?.data?.status === 'ok') {
-          setBackendStatus('online');
-        } else {
-          setBackendStatus('offline');
-        }
-      } catch (err) {
-        console.error('Health check failed:', err);
+      if (res && res.success && res.data?.status === 'ok') {
+        setBackendStatus('online');
+      } else {
         setBackendStatus('offline');
       }
-    };
+    } catch (err) {
+      console.error('Backend health check failed:', err);
+      setBackendStatus('offline');
+    }
+  };
 
-    pollHealth();
+  pollHealth();
 
-    const interval = setInterval(pollHealth, 15000);
+  const interval = setInterval(pollHealth, 15000);
 
-    return () => clearInterval(interval);
-  }, []);
+  return () => clearInterval(interval);
+}, []);
 
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-gray-800">
