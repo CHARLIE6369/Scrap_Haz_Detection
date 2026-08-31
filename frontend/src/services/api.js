@@ -1,10 +1,11 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000, // 60s timeout for CPU inference
+  timeout: 120000,
 });
 
 export const checkHealth = async () => {
@@ -12,13 +13,18 @@ export const checkHealth = async () => {
     const response = await apiClient.get('/api/health');
     return response.data;
   } catch (error) {
-    if (error.code === 'ECONNABORTED') {
-      throw new Error('Health check timed out.');
+    console.error('HEALTH ERROR:', error);
+
+    if (error.response) {
+      throw new Error(
+        error.response.data?.error ||
+        `Health check failed (${error.response.status})`
+      );
     }
-    if (!error.response) {
-      throw new Error('Unable to connect to the YOLO backend. Make sure the Flask server is running.');
-    }
-    throw new Error(error.response?.data?.error || 'Health check failed.');
+
+    throw new Error(
+      `Unable to connect to the YOLO backend at ${API_BASE_URL}`
+    );
   }
 };
 
@@ -27,10 +33,18 @@ export const getModelInfo = async () => {
     const response = await apiClient.get('/api/model-info');
     return response.data;
   } catch (error) {
-    if (!error.response) {
-      throw new Error('Unable to connect to the YOLO backend.');
+    console.error('MODEL INFO ERROR:', error);
+
+    if (error.response) {
+      throw new Error(
+        error.response.data?.error ||
+        `Model info failed (${error.response.status})`
+      );
     }
-    throw new Error(error.response?.data?.error || 'Failed to retrieve model info.');
+
+    throw new Error(
+      `Unable to connect to the YOLO backend at ${API_BASE_URL}`
+    );
   }
 };
 
@@ -47,12 +61,17 @@ export const detectObjects = async (
         payload.append('confidence', confidence);
       }
 
-      response = await apiClient.post('/api/detect', payload, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // IMPORTANT:
+      // Do NOT manually set Content-Type here.
+      // The browser automatically creates:
+      // multipart/form-data; boundary=...
+      response = await apiClient.post(
+        '/api/detect',
+        payload
+      );
+
     } else {
+
       response = await apiClient.post(
         '/api/detect',
         {
@@ -67,7 +86,7 @@ export const detectObjects = async (
       );
     }
 
-    console.log('DETECTION RESPONSE:', response.data);
+    console.log('DETECTION SUCCESS:', response.data);
 
     return response.data;
 
@@ -75,30 +94,36 @@ export const detectObjects = async (
 
     console.error('========== DETECTION ERROR ==========');
     console.error('API URL:', API_BASE_URL);
-    console.error('Error:', error);
-    console.error('Code:', error.code);
-    console.error('Message:', error.message);
-    console.error('Response:', error.response);
-    console.error('Response data:', error.response?.data);
-    console.error('Response status:', error.response?.status);
-    console.error('Request:', error.request);
-    console.error('======================================');
+    console.error('HTTP status:', error.response?.status);
+    console.error('Backend response:', error.response?.data);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    console.error('=====================================');
 
     if (error.response) {
+
       const backendError =
         error.response.data?.error ||
         error.response.data?.message ||
-        `Backend returned HTTP ${error.response.status}`;
+        `Backend error: HTTP ${error.response.status}`;
 
       throw new Error(backendError);
     }
 
     if (error.code === 'ECONNABORTED') {
-      throw new Error('Detection request timed out. CPU inference may take longer on Render.');
+      throw new Error(
+        'Detection timed out. The Render CPU server may need more time for YOLO inference.'
+      );
     }
 
     throw new Error(
       `Unable to connect to the YOLO backend at ${API_BASE_URL}`
     );
   }
+};
+
+export default {
+  checkHealth,
+  getModelInfo,
+  detectObjects,
 };
