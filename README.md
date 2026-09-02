@@ -1,19 +1,45 @@
-<<<<<<< HEAD
-# YOLO Object Detection Web Application
+# Scrap & Hazardous Material Detection System
 
-A full-stack, production-quality computer vision web application powered by a **React + Vite + Tailwind CSS** frontend and a **Flask + Ultralytics YOLO** backend.
+A full-stack, production-quality computer vision web application that detects and classifies scrap components (**cylinder**, **shock absorber**) in real time, powered by a **React + Vite + Tailwind CSS** frontend and a **Flask + Ultralytics YOLO11n** backend.
+
+---
+
+## 📌 Problem Statement
+
+Manual sorting of scrap materials is slow and error-prone. This project automates detection and classification of scrap components using computer vision, improving speed and consistency in industrial recycling and waste-management workflows.
 
 ---
 
 ## 🌟 Features
 
 * **Image Upload Detection:** Upload local images (JPG, JPEG, PNG, WEBP) to detect objects with bounding boxes, confidence %, and parsed coordinate details.
-* **Webcam Real-Time Detection:** Open your device's webcam to capture frames or enable interval live stream detection.
+* **Webcam Real-Time Detection:** Open your device's webcam to capture frames or enable interval live-stream detection.
 * **Confidence Threshold Control:** Adjust confidence threshold from 0% to 100% dynamically via an interactive slider.
 * **Statistical Insights:** View Total Objects Detected, Highest Confidence %, Unique Classes Detected, and Inference Time (ms).
 * **Detailed Coordinates Table:** Parsed bounding box coordinates `(X1, Y1, X2, Y2)` rendered in a responsive data table.
 * **Dynamic Class Resolution:** Class names are extracted dynamically from the loaded YOLO PyTorch model (`.pt`).
 * **Decoupled Architecture:** Clean separation between frontend (Netlify SPA ready) and backend Python inference API.
+
+---
+
+## 🎯 Classes Detected
+
+* Cylinder
+* Shock Absorber
+
+## 🧠 Model
+
+Trained a custom **YOLO11n (nano)** model using Ultralytics on a Roboflow-labeled dataset (2 classes, 50 epochs), resolving class imbalance and merging mislabeled duplicate classes during preprocessing.
+
+**Validation results:**
+
+| Metric | Value |
+|---|---|
+| mAP50 | 0.65 |
+| mAP50-95 | 0.43 |
+| Precision | 0.74 |
+| Recall | 0.56 |
+| Inference time | ~12.4 ms/image |
 
 ---
 
@@ -29,7 +55,7 @@ A full-stack, production-quality computer vision web application powered by a **
 ### Backend
 * **Language:** Python 3.10+
 * **Web Framework:** Flask & Flask-CORS
-* **Computer Vision:** Ultralytics YOLO (PyTorch) & OpenCV (cv2)
+* **Computer Vision:** Ultralytics YOLOv9 (PyTorch) & OpenCV (cv2)
 * **Image Processing:** Pillow & NumPy
 * **Environment:** Python-Dotenv
 
@@ -38,7 +64,7 @@ A full-stack, production-quality computer vision web application powered by a **
 ## 📁 Project Structure
 
 ```
-yolo-object-detection-app/
+Scrap_Haz_Detection/
 ├── frontend/
 │   ├── public/
 │   ├── src/
@@ -86,6 +112,11 @@ yolo-object-detection-app/
 │   └── models/
 │       └── best.pt
 │
+├── dataset_check.py     # counts label distribution across classes
+├── validate.py          # runs validation metrics (mAP, precision, recall)
+├── inferance.py         # runs detection on a static image
+├── webcam.py            # runs real-time detection via webcam
+├── data.yaml            # dataset configuration for YOLO training
 ├── .gitignore
 ├── netlify.toml
 └── README.md
@@ -97,7 +128,7 @@ yolo-object-detection-app/
 
 * **Python:** 3.10 or higher
 * **Node.js:** 18 or higher (npm 9+)
-* **Browser:** Chrome, Firefox, Edge, or Safari with WebCam permissions enabled
+* **Browser:** Chrome, Firefox, Edge, or Safari with webcam permissions enabled
 
 ---
 
@@ -109,22 +140,13 @@ Place your trained PyTorch YOLO model file (`best.pt`) inside the backend models
 ```bash
 backend/models/best.pt
 ```
-
-*(Note: The repository pre-loads this model automatically on Flask server start).*
-
----
+*(The repository pre-loads this model automatically on Flask server start.)*
 
 ### 2. Backend Setup & Run
 
-Open a terminal and navigate to the backend folder:
-
 ```bash
 cd backend
-```
 
-Create and activate a virtual environment (optional but recommended):
-
-```bash
 # Windows
 python -m venv venv
 .\venv\Scripts\activate
@@ -132,47 +154,29 @@ python -m venv venv
 # Linux / macOS
 python3 -m venv venv
 source venv/bin/activate
-```
 
-Install Python dependencies:
-
-```bash
 pip install -r requirements.txt
-```
-
-Start the Flask API server:
-
-```bash
 python app.py
 ```
-
-The backend server will run on:
-👉 `http://127.0.0.1:5000`
-
----
+The backend server will run on 👉 `http://127.0.0.1:5000`
 
 ### 3. Frontend Setup & Run
 
-Open a second terminal and navigate to the frontend folder:
-
 ```bash
 cd frontend
-```
-
-Install dependencies:
-
-```bash
 npm install
-```
-
-Start the Vite development server:
-
-```bash
 npm run dev
 ```
+The web application will run on 👉 `http://localhost:5173`
 
-The web application will run on:
-👉 `http://localhost:5173`
+### Quick Script Usage
+
+```bash
+pip install -r requirements.txt
+python inferance.py     # static image inference
+python webcam.py        # real-time webcam inference
+python validate.py      # run validation metrics
+```
 
 ---
 
@@ -180,7 +184,6 @@ The web application will run on:
 
 ### 1. Health Check
 * **Endpoint:** `GET /api/health`
-* **Response:**
 ```json
 {
   "success": true,
@@ -191,7 +194,6 @@ The web application will run on:
 
 ### 2. Model Information
 * **Endpoint:** `GET /api/model-info`
-* **Response:**
 ```json
 {
   "success": true,
@@ -209,7 +211,6 @@ The web application will run on:
 * **Endpoint:** `POST /api/detect`
 * **Content-Type:** `multipart/form-data` or `application/json`
 * **Payload:** `image` file or base64 data string, optional `confidence` (0.0 to 1.0)
-* **Response:**
 ```json
 {
   "success": true,
@@ -237,63 +238,28 @@ The web application will run on:
 
 ---
 
-## 🌐 Netlify Deployment Guide
+## 🌐 Deployment
 
-The frontend React application is completely configured for Netlify SPA deployment.
+The frontend is configured for **Netlify** SPA deployment; the backend should be hosted on a Python-friendly platform (Render, AWS EC2, etc.) since persistent PyTorch YOLO backends can't run in serverless frontend environments.
 
 1. Connect your repository to Netlify.
-2. Configure build settings:
-   * **Build Command:** `npm run build`
-   * **Publish Directory:** `dist`
-3. Add Environment Variable in Netlify Dashboard:
-   * `VITE_API_URL` = Your production Python API backend URL (e.g. `https://your-yolo-backend.onrender.com`)
-4. Trigger deploy! Netlify will build the SPA and handle client-side routing via `netlify.toml`.
+2. Build settings: **Build Command:** `npm run build`, **Publish Directory:** `dist`
+3. Add environment variable in Netlify Dashboard: `VITE_API_URL` = your production backend URL (e.g. `https://your-yolo-backend.onrender.com`)
+4. Deploy the backend separately (e.g. Render) and point `VITE_API_URL` to it.
 
-*(Note: Persistent PyTorch YOLO backends cannot run directly inside serverless frontend environments; host the Flask API on a Python hosting provider like Render or AWS EC2).*
+**Live Demo:** _add your deployed public URL here once hosted (avoid `localhost` links — they only work on your own machine)_
 
 ---
 
 ## ❓ Troubleshooting
 
-* **Webcam Permission Denied:** Ensure browser permissions permit camera access for `localhost:5173`.
-* **Backend Connection Error:** Verify the Flask server is active on `http://127.0.0.1:5000` and check CORS settings.
+* **Webcam Permission Denied:** Ensure browser permissions allow camera access for your frontend URL.
+* **Backend Connection Error:** Verify the Flask server is active and check CORS settings.
 * **Model Not Found Error:** Confirm `best.pt` exists in `backend/models/best.pt`.
 * **Python Ultralytics Error:** Ensure `pip install ultralytics opencv-python Pillow` completed successfully.
-=======
-# Scrap_Haz_Detection
 
-Machine Learning project to detect and classify scrap components (cylinder, shock absorber) using YOLOv9 object detection, built with Python and Ultralytics.
+---
 
-## Problem Statement
-Manual sorting of scrap materials is slow and error-prone. This project automates detection and classification of scrap components using computer vision, improving speed and consistency in industrial recycling workflows.
+## 📄 License
 
-## Tech Stack
-- Python
-- Ultralytics YOLOv9
-- OpenCV
-- PyTorch
-
-## Classes Detected
-- Cylinder
-- Shock Absorber
-
-## Project Structure
-- `dataset_check.py` — counts label distribution across classes
-- `validate.py` — runs validation metrics (mAP, precision, recall) on trained model
-- `inferance.py` — runs detection on a static image
-- `webcam.py` — runs real-time detection via webcam
-- `data.yaml` — dataset configuration for YOLO training
-
-## How to Run
-```bash
-pip install -r requirements.txt
-python inferance.py
-```
-
-## Model
-Trained using YOLOv9t (nano) on a custom Roboflow dataset with 2 classes, over 50 epochs.
-
-## Live Demo
-(http://localhost:5173)
-
->>>>>>> eeed7ef9b513aab31c15918cf26a98cbdf3b60db
+MIT
