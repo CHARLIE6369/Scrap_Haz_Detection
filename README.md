@@ -35,7 +35,7 @@ A custom YOLO11n (nano) model trained with Ultralytics on a Roboflow-labeled dat
 | Recall | 0.56 |
 | Model inference time | ~12.4 ms/image |
 
-> The ~12.4 ms figure is model-only inference. End-to-end API latency (image decoding, annotation, base64 encoding, network) is higher.
+> The ~12.4 ms figure is model-only inference measured during validation (GPU). On a CPU-only laptop, expect roughly 400-600 ms per image through the web app, plus a little overhead for image decoding, annotation and base64 encoding.
 
 ## ⚠️ Limitations
 
@@ -144,15 +144,19 @@ After training, Ultralytics saves the weights at `runs/detect/<run-name>/weights
 
 ### 2. Install dependencies (one time)
 
-cd D:\PROJECT\scrab_detection
+Run these from the project root, meaning the folder that contains `backend/`, `frontend/` and `run_app.py`.
+
+```powershell
+# Windows
+python -m venv venv
 .\venv\Scripts\Activate.ps1
-cd yolo-object-detection-app
 
 pip install -r backend/requirements.txt
 
 cd frontend
 npm install
 cd ..
+```
 
 ```bash
 # Linux / macOS
@@ -192,6 +196,25 @@ python app.py
 cd frontend
 npm run dev
 ```
+
+### Running again later
+
+Dependencies are already installed, so you only need to activate the virtual environment and start the app:
+
+```powershell
+# Windows - activate the venv (adjust the path if your venv is in a parent folder)
+.\venv\Scripts\Activate.ps1
+# then, from the folder that contains run_app.py
+python run_app.py
+```
+
+```bash
+# Linux / macOS
+source venv/bin/activate
+python3 run_app.py
+```
+
+> **Common mistake:** if you see `Cannot find path '...\backend'` or `No such file or directory: 'backend/requirements.txt'`, you are in the wrong folder. `cd` into the folder that contains `backend/`, `frontend/` and `run_app.py` and try again.
 
 ### Quick script usage
 
