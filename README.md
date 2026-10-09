@@ -144,28 +144,18 @@ After training, Ultralytics saves the weights at `runs/detect/<run-name>/weights
 
 ### 2. Install dependencies (one time)
 
-Run these from the project root, meaning the folder that contains `backend/`, `frontend/` and `run_app.py`.
-
 ```powershell
-# Windows
-python -m venv venv
+cd D:\PROJECT\scrab_detection
 .\venv\Scripts\Activate.ps1
+cd yolo-object-detection-app
 
 pip install -r backend/requirements.txt
 
 cd frontend
 npm install
 cd ..
-```
 
-```bash
-# Linux / macOS
-python3 -m venv venv
-source venv/bin/activate
-
-pip install -r backend/requirements.txt
-
-cd frontend && npm install && cd ..
+python run_app.py
 ```
 
 ### 3. Start the app
