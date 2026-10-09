@@ -154,8 +154,6 @@ cd frontend
 npm install
 cd ..
 
-python run_app.py
-
 ```bash
 # Linux / macOS
 python3 -m venv venv
