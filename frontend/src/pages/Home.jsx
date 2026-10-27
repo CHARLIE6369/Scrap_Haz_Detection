@@ -1,117 +1,116 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Upload, Camera, Sparkles, ArrowRight, ShieldCheck, Cpu, Layers } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { UploadCloud, Camera, ArrowRight, ShieldCheck, Cpu, Zap } from 'lucide-react';
 
 const Home = () => {
-  const navigate = useNavigate();
-
   return (
-    <div className="space-y-12 py-4">
-      {/* Hero Header Section */}
-      <div className="relative text-center max-w-3xl mx-auto space-y-4">
-        <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium">
-          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Ultralytics YOLO Real-Time Vision System</span>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
+      
+      {/* Hero Header */}
+      <div className="text-center max-w-3xl mx-auto space-y-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-500/15 border border-brand-500/30 text-brand-400 text-xs font-semibold">
+          <Zap className="w-3.5 h-3.5" />
+          Powered by Ultralytics YOLO & Flask
         </div>
 
-        <h1 className="font-heading font-extrabold text-4xl sm:text-5xl lg:text-6xl text-white tracking-tight leading-tight">
-          YOLO <span className="bg-gradient-to-r from-indigo-400 via-cyan-400 to-teal-300 bg-clip-text text-transparent">Object Detection</span> Web Application
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+          YOLO Object Detection <br className="hidden sm:inline" />
+          <span className="bg-gradient-to-r from-brand-500 via-brand-accent to-emerald-400 bg-clip-text text-transparent">
+            AI Dashboard
+          </span>
         </h1>
 
-        <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto font-normal">
-          AI-powered real-time object detection using custom-trained YOLO models. Upload an image or use your webcam to detect bounding boxes, confidence scores, and statistics.
+        <p className="text-base text-slate-400 leading-relaxed">
+          Upload an image or use your webcam to detect objects, visualize bounding boxes, analyze confidence scores, and view comprehensive inference metrics in real time.
         </p>
       </div>
 
-      {/* Feature Cards Grid (Prompt Section 7) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+      {/* Feature Cards Grid */}
+      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        
         {/* Card 1: Upload Image */}
-        <div className="glass-card rounded-3xl p-8 relative overflow-hidden group border border-gray-800 hover:border-indigo-500/40 flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl group-hover:bg-indigo-600/20 transition-all pointer-events-none"></div>
+        <div className="glass-card p-8 rounded-3xl space-y-6 transition-all duration-300 group hover:-translate-y-1">
+          <div className="w-16 h-16 rounded-2xl bg-brand-500/10 border border-brand-500/30 flex items-center justify-center text-brand-500 group-hover:scale-110 transition-transform">
+            <UploadCloud className="w-8 h-8" />
+          </div>
 
-          <div className="space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
-              <Upload className="w-7 h-7" />
-            </div>
-
-            <h2 className="font-heading font-bold text-2xl text-white">Upload Image Detection</h2>
-
-            <p className="text-gray-400 text-sm leading-relaxed">
-              Upload an image from your computer (JPG, PNG, WEBP) and run instant YOLO object detection. View bounding boxes, confidence percentages, and parse exact coordinates.
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-white group-hover:text-brand-400 transition-colors">
+              Image Upload Detection
+            </h2>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Upload local JPG, PNG, or WEBP images to run object detection. Supports custom confidence thresholds, bounding box overlays, and exportable detection statistics.
             </p>
           </div>
 
-          <div className="pt-8">
-            <button
-              onClick={() => navigate('/detect-image')}
-              className="w-full flex items-center justify-center space-x-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-medium text-sm shadow-xl shadow-indigo-500/20 transition-all active:scale-[0.98]"
-            >
-              <span>Upload Image & Detect</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+          <Link
+            to="/image-detection"
+            className="inline-flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-xl font-semibold text-sm text-white bg-brand-600 hover:bg-brand-500 shadow-lg shadow-brand-600/25 transition-all group-hover:shadow-brand-500/40"
+          >
+            Upload Image & Detect
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
 
         {/* Card 2: Webcam Detection */}
-        <div className="glass-card rounded-3xl p-8 relative overflow-hidden group border border-gray-800 hover:border-cyan-500/40 flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-600/10 rounded-full blur-3xl group-hover:bg-cyan-600/20 transition-all pointer-events-none"></div>
+        <div className="glass-card p-8 rounded-3xl space-y-6 transition-all duration-300 group hover:-translate-y-1">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+            <Camera className="w-8 h-8" />
+          </div>
 
-          <div className="space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform">
-              <Camera className="w-7 h-7" />
-            </div>
-
-            <h2 className="font-heading font-bold text-2xl text-white">Webcam Real-Time Detection</h2>
-
-            <p className="text-gray-400 text-sm leading-relaxed">
-              Open your device's webcam to capture live frames or enable automatic interval detection mode. Detect objects directly from your live video stream.
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-white group-hover:text-emerald-400 transition-colors">
+              Webcam Detection
+            </h2>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              Stream live webcam feed from your browser. Capture individual frames or activate live auto-detection mode with configurable polling intervals.
             </p>
           </div>
 
-          <div className="pt-8">
-            <button
-              onClick={() => navigate('/webcam')}
-              className="w-full flex items-center justify-center space-x-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-medium text-sm shadow-xl shadow-cyan-500/20 transition-all active:scale-[0.98]"
-            >
-              <span>Open Webcam Camera</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+          <Link
+            to="/webcam-detection"
+            className="inline-flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-xl font-semibold text-sm text-white bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/25 transition-all group-hover:shadow-emerald-500/40"
+          >
+            Open Webcam & Detect
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
+
       </div>
 
-      {/* Info Highlights Banner */}
-      <div className="max-w-5xl mx-auto glass-panel rounded-2xl p-6 border border-gray-800 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="flex items-start space-x-3">
-          <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 shrink-0">
+      {/* Highlights Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto pt-6 border-t border-slate-800/80">
+        <div className="flex items-center gap-3 text-slate-300">
+          <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-brand-400 flex-shrink-0">
             <Cpu className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="font-heading font-semibold text-sm text-white">Custom YOLO Weights</h4>
-            <p className="text-xs text-gray-400 mt-0.5">Pre-loaded Ultralytics PyTorch model for high speed inference.</p>
+            <h4 className="text-xs font-bold text-white">Dynamic Model Loading</h4>
+            <p className="text-[11px] text-slate-400">Class names parsed dynamically from weights</p>
           </div>
         </div>
 
-        <div className="flex items-start space-x-3">
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 shrink-0">
-            <Layers className="w-5 h-5" />
+        <div className="flex items-center gap-3 text-slate-300">
+          <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-emerald-400 flex-shrink-0">
+            <Zap className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="font-heading font-semibold text-sm text-white">Dynamic Class Extraction</h4>
-            <p className="text-xs text-gray-400 mt-0.5">Automatically resolves model classes without hardcoding.</p>
+            <h4 className="text-xs font-bold text-white">Sub-Second CPU Inference</h4>
+            <p className="text-[11px] text-slate-400">Optimized for lightweight local hosting</p>
           </div>
         </div>
 
-        <div className="flex items-start space-x-3">
-          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
+        <div className="flex items-center gap-3 text-slate-300">
+          <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-cyan-400 flex-shrink-0">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="font-heading font-semibold text-sm text-white">Production Decoupled</h4>
-            <p className="text-xs text-gray-400 mt-0.5">Frontend ready for Netlify SPA deployment with Python backend.</p>
+            <h4 className="text-xs font-bold text-white">Netlify Ready Architecture</h4>
+            <p className="text-[11px] text-slate-400">Decoupled frontend & Python REST API</p>
           </div>
         </div>
       </div>
+
     </div>
   );
 };

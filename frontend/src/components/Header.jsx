@@ -1,219 +1,124 @@
-
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  Scan,
-  Camera,
-  Image as ImageIcon,
-  Info,
-  Activity,
-  AlertCircle,
-} from 'lucide-react';
+import { Scan, Image as ImageIcon, Camera, Info, Server, CheckCircle2, AlertCircle } from 'lucide-react';
 import { checkHealth } from '../services/api';
 
 const Header = () => {
-  const [backendStatus, setBackendStatus] = useState('checking');
+  const [backendStatus, setBackendStatus] = useState({ loading: true, online: false, modelLoaded: false });
 
-useEffect(() => {
-  const pollHealth = async () => {
-    try {
-      const res = await checkHealth();
-
-      console.log('Render API health:', res);
-
-      if (res && res.success && res.data?.status === 'ok') {
-        setBackendStatus('online');
-      } else {
-        setBackendStatus('offline');
-      }
-    } catch (err) {
-      console.error('Backend health check failed:', err);
-      setBackendStatus('offline');
-    }
+  const verifyBackend = async () => {
+    setBackendStatus(prev => ({ ...prev, loading: true }));
+    const health = await checkHealth();
+    setBackendStatus({
+      loading: false,
+      online: health.success && health.status === 'ok',
+      modelLoaded: health.model_loaded || false
+    });
   };
 
-  pollHealth();
+  useEffect(() => {
+    verifyBackend();
+    const interval = setInterval(verifyBackend, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const interval = setInterval(pollHealth, 15000);
-
-  return () => clearInterval(interval);
-}, []);
+  const navLinkClass = ({ isActive }) =>
+    `flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+      isActive
+        ? 'bg-brand-500/15 text-brand-500 border border-brand-500/30 shadow-sm'
+        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+    }`;
 
   return (
-    <header className="sticky top-0 z-50 glass-panel border-b border-gray-800">
+    <header className="sticky top-0 z-50 glass-panel border-b border-slate-800/80 bg-dark-900/80 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-
-          {/* Brand Logo */}
-          <NavLink to="/" className="flex items-center space-x-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-              <Scan className="w-6 h-6 text-white" />
+        <div className="flex items-center justify-between h-18 py-3">
+          
+          {/* Logo & Title */}
+          <NavLink to="/" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-accent p-0.5 shadow-lg shadow-brand-500/20 group-hover:scale-105 transition-transform duration-200">
+              <div className="w-full h-full bg-dark-900 rounded-[10px] flex items-center justify-center">
+                <Scan className="w-5 h-5 text-brand-500 group-hover:text-brand-accent transition-colors" />
+              </div>
             </div>
-
             <div>
-              <span className="font-heading font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-gray-100 to-gray-400 bg-clip-text text-transparent">
-                YOLO<span className="text-indigo-400">Vision</span>
-              </span>
-
-              <span className="block text-[10px] text-indigo-300 tracking-widest font-mono uppercase -mt-1">
-                AI Object Detection
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-lg text-white tracking-tight">YOLO</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-500 border border-brand-500/30 font-semibold">v8</span>
+              </div>
+              <p className="text-xs text-slate-400 font-medium">Object Detection AI</p>
             </div>
           </NavLink>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-1">
-
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                `flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-800/50'
-                }`
-              }
-            >
-              <span>Home</span>
+          <nav className="hidden md:flex items-center gap-1">
+            <NavLink to="/" className={navLinkClass} end>
+              Home
             </NavLink>
-
-            <NavLink
-              to="/detect-image"
-              className={({ isActive }) =>
-                `flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-800/50'
-                }`
-              }
-            >
+            <NavLink to="/image-detection" className={navLinkClass}>
               <ImageIcon className="w-4 h-4" />
-              <span>Image Detection</span>
+              Image Detection
             </NavLink>
-
-            <NavLink
-              to="/webcam"
-              className={({ isActive }) =>
-                `flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-800/50'
-                }`
-              }
-            >
+            <NavLink to="/webcam-detection" className={navLinkClass}>
               <Camera className="w-4 h-4" />
-              <span>Webcam</span>
+              Webcam
             </NavLink>
-
-            <NavLink
-              to="/about"
-              className={({ isActive }) =>
-                `flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-800/50'
-                }`
-              }
-            >
+            <NavLink to="/about" className={navLinkClass}>
               <Info className="w-4 h-4" />
-              <span>About</span>
+              About
             </NavLink>
-
           </nav>
 
-          {/* Backend Health Status Badge */}
-          <div className="flex items-center">
-
-            {backendStatus === 'online' ? (
-
-              <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-
-                <span className="font-mono">
-                  Backend API: Online
-                </span>
-              </div>
-
-            ) : backendStatus === 'offline' ? (
-
-              <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-rose-950/60 border border-rose-500/30 text-rose-400 text-xs font-medium">
-                <AlertCircle className="w-3.5 h-3.5" />
-
-                <span className="font-mono">
-                  API: Offline
-                </span>
-              </div>
-
-            ) : (
-
-              <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-gray-900 border border-gray-700 text-gray-400 text-xs font-medium">
-                <Activity className="w-3.5 h-3.5 animate-spin" />
-
-                <span className="font-mono">
-                  Checking API...
+          {/* Backend Status Indicator */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={verifyBackend}
+              title="Click to check Flask API status"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 hover:bg-slate-700/60 transition-colors"
+            >
+              <Server className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center gap-1.5 text-xs">
+                {backendStatus.loading ? (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                ) : backendStatus.online ? (
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 glow-emerald"></span>
+                ) : (
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                )}
+                
+                <span className="font-medium">
+                  {backendStatus.loading
+                    ? 'Connecting...'
+                    : backendStatus.online
+                    ? backendStatus.modelLoaded
+                      ? 'Backend Ready'
+                      : 'Model Missing'
+                    : 'Backend Offline'}
                 </span>
               </div>
-
-            )}
-
+            </button>
           </div>
+
         </div>
-      </div>
 
-      {/* Mobile navigation bar */}
-      <div className="md:hidden flex items-center justify-around border-t border-gray-800/60 py-2 px-4 bg-gray-950/80">
-
-        <NavLink
-          to="/"
-          end
-          className={({ isActive }) =>
-            `flex flex-col items-center text-xs py-1 ${
-              isActive ? 'text-indigo-400' : 'text-gray-400'
-            }`
-          }
-        >
-          <span>Home</span>
-        </NavLink>
-
-        <NavLink
-          to="/detect-image"
-          className={({ isActive }) =>
-            `flex flex-col items-center text-xs py-1 ${
-              isActive ? 'text-indigo-400' : 'text-gray-400'
-            }`
-          }
-        >
-          <ImageIcon className="w-4 h-4 mb-0.5" />
-          <span>Image</span>
-        </NavLink>
-
-        <NavLink
-          to="/webcam"
-          className={({ isActive }) =>
-            `flex flex-col items-center text-xs py-1 ${
-              isActive ? 'text-indigo-400' : 'text-gray-400'
-            }`
-          }
-        >
-          <Camera className="w-4 h-4 mb-0.5" />
-          <span>Webcam</span>
-        </NavLink>
-
-        <NavLink
-          to="/about"
-          className={({ isActive }) =>
-            `flex flex-col items-center text-xs py-1 ${
-              isActive ? 'text-indigo-400' : 'text-gray-400'
-            }`
-          }
-        >
-          <Info className="w-4 h-4 mb-0.5" />
-          <span>About</span>
-        </NavLink>
+        {/* Mobile Navigation Bar */}
+        <div className="md:hidden flex items-center justify-around py-2 border-t border-slate-800/60">
+          <NavLink to="/" className={navLinkClass} end>
+            Home
+          </NavLink>
+          <NavLink to="/image-detection" className={navLinkClass}>
+            <ImageIcon className="w-4 h-4" />
+            Image
+          </NavLink>
+          <NavLink to="/webcam-detection" className={navLinkClass}>
+            <Camera className="w-4 h-4" />
+            Webcam
+          </NavLink>
+          <NavLink to="/about" className={navLinkClass}>
+            <Info className="w-4 h-4" />
+            About
+          </NavLink>
+        </div>
 
       </div>
     </header>

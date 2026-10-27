@@ -15,12 +15,8 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Configure CORS for frontend access
-    CORS(
-        app,
-        resources={r"/api/*": {"origins": Config.ALLOWED_ORIGINS}},
-        supports_credentials=True
-    )
+    # Configure CORS for frontend access across all domains (Render, Netlify, localhost)
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     # Register API blueprints
     app.register_blueprint(health_bp)

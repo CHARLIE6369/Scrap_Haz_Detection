@@ -1,78 +1,61 @@
 import React from 'react';
-import { Table, Box } from 'lucide-react';
+import { Table, Box, Hash, Percent } from 'lucide-react';
 
-const DetectionTable = ({ detections = [] }) => {
-  if (!detections || detections.length === 0) {
-    return (
-      <div className="glass-card rounded-2xl p-6 text-center">
-        <div className="w-12 h-12 mx-auto mb-2 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-500">
-          <Table className="w-6 h-6" />
-        </div>
-        <h4 className="font-heading font-medium text-gray-300">No Object Detections</h4>
-        <p className="text-xs text-gray-500 mt-1">
-          Detection objects table will appear here once inference runs.
-        </p>
-      </div>
-    );
-  }
+const DetectionTable = ({ detections }) => {
+  if (!detections || detections.length === 0) return null;
 
   return (
-    <div className="glass-card rounded-2xl p-6">
-      <div className="flex items-center space-x-3 mb-4">
-        <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-          <Table className="w-4 h-4" />
-        </div>
-        <div>
-          <h3 className="font-heading font-semibold text-base text-white">Detection Details</h3>
-          <p className="text-xs text-gray-400">Parsed object classes, confidence, and bounding box coordinates</p>
-        </div>
+    <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+          <Table className="w-5 h-5 text-brand-500" />
+          Detected Objects List
+        </h3>
+        <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 font-semibold">
+          {detections.length} item{detections.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-950/40">
-        <table className="w-full text-left text-xs font-mono">
-          <thead className="bg-gray-900/80 text-gray-400 uppercase tracking-wider text-[11px] border-b border-gray-800">
+      <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-900/90 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800">
             <tr>
-              <th className="py-3 px-4">#</th>
-              <th className="py-3 px-4">Object Class</th>
-              <th className="py-3 px-4 text-right">Confidence</th>
-              <th className="py-3 px-4 text-center">X1</th>
-              <th className="py-3 px-4 text-center">Y1</th>
-              <th className="py-3 px-4 text-center">X2</th>
-              <th className="py-3 px-4 text-center">Y2</th>
+              <th className="px-4 py-3">#</th>
+              <th className="px-4 py-3">Object / Class</th>
+              <th className="px-4 py-3 text-right">Confidence</th>
+              <th className="px-4 py-3 text-center">X1</th>
+              <th className="px-4 py-3 text-center">Y1</th>
+              <th className="px-4 py-3 text-center">X2</th>
+              <th className="px-4 py-3 text-center">Y2</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800/60 text-gray-300">
-            {detections.map((det, idx) => {
-              const bbox = det.bbox || {};
-              const confPercent = det.confidence_percent || (det.confidence * 100).toFixed(1);
+          <tbody className="divide-y divide-slate-800/80 bg-slate-900/40 font-medium">
+            {detections.map((item, index) => {
+              const confPct = item.confidence_pct || (item.confidence * 100).toFixed(1);
+              const bbox = item.bbox || { x1: '-', y1: '-', x2: '-', y2: '-' };
+              
+              // Custom class colors
+              const isClass0 = item.class_id === 0;
+              const badgeClass = isClass0
+                ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                : 'bg-orange-500/15 text-orange-400 border-orange-500/30';
 
               return (
-                <tr
-                  key={idx}
-                  className="hover:bg-indigo-950/20 transition-colors group"
-                >
-                  <td className="py-3 px-4 text-gray-500">{idx + 1}</td>
-                  <td className="py-3 px-4 font-sans font-semibold text-white flex items-center space-x-2">
-                    <Box className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
-                    <span className="capitalize">{det.class_name}</span>
-                  </td>
-                  <td className="py-3 px-4 text-right font-semibold">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded ${
-                        Number(confPercent) > 80
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : Number(confPercent) > 50
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      }`}
-                    >
-                      {confPercent}%
+                <tr key={index} className="hover:bg-slate-800/50 transition-colors">
+                  <td className="px-4 py-3 text-slate-500">{index + 1}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${badgeClass}`}>
+                      <Box className="w-3.5 h-3.5" />
+                      {item.class_name}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-center text-gray-400">{bbox.x1 ?? '-'}</td>
-                  <td className="py-3 px-4 text-center text-gray-400">{bbox.y1 ?? '-'}</td>
-                  <td className="py-3 px-4 text-center text-gray-400">{bbox.x2 ?? '-'}</td>
-                  <td className="py-3 px-4 text-center text-gray-400">{bbox.y2 ?? '-'}</td>
+                  <td className="px-4 py-3 text-right font-bold text-emerald-400">
+                    {confPct}%
+                  </td>
+                  <td className="px-4 py-3 text-center text-slate-300 font-mono">{bbox.x1}</td>
+                  <td className="px-4 py-3 text-center text-slate-300 font-mono">{bbox.y1}</td>
+                  <td className="px-4 py-3 text-center text-slate-300 font-mono">{bbox.x2}</td>
+                  <td className="px-4 py-3 text-center text-slate-300 font-mono">{bbox.y2}</td>
                 </tr>
               );
             })}

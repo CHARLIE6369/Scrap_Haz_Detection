@@ -1,163 +1,144 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 export const useWebcam = () => {
+  const [stream, setStream] = useState(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [error, setError] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const streamRef = useRef(null);
-  const [stream, setStream] = useState(null);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState(null);
-  const [devices, setDevices] = useState([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState('');
 
-  // Fetch available video input devices
-  const getDevices = useCallback(async () => {
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-        return;
-      }
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = allDevices.filter((d) => d.kind === 'videoinput');
-      setDevices(videoDevices);
-      if (videoDevices.length > 0 && !selectedDeviceId) {
-        const defaultDev = videoDevices.find((d) => d.deviceId) || videoDevices[0];
-        if (defaultDev && defaultDev.deviceId) {
-          setSelectedDeviceId(defaultDev.deviceId);
-        }
-      }
-    } catch (err) {
-      console.warn('Error fetching media devices:', err);
-    }
-  }, [selectedDeviceId]);
-
-  useEffect(() => {
-    getDevices();
-  }, [getDevices]);
-
-  // Ensure streamRef stays updated
-  useEffect(() => {
-    streamRef.current = stream;
-  }, [stream]);
-
-  // Bind mediaStream to videoRef element
-  useEffect(() => {
-    if (videoRef.current) {
-      if (stream) {
-        videoRef.current.srcObject = stream;
-        videoRef.current
-          .play()
-          .then(() => setIsStreaming(true))
-          .catch((err) => {
-            console.warn('Video play error:', err);
-          });
-      } else {
-        videoRef.current.srcObject = null;
-        setIsStreaming(false);
-      }
-    }
-  }, [stream]);
-
-  // Stop camera tracks
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setStream(null);
-    setIsStreaming(false);
-  }, []);
-
-  // Start camera with requested device
-  const startCamera = useCallback(async (deviceId) => {
-    // Stop any existing tracks
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
+  const startCamera = useCallback(async () => {
     setError(null);
-
-    const targetId = deviceId || selectedDeviceId;
-    // Use 'ideal' instead of 'exact' to prevent OverconstrainedError
-    const constraints = {
-      video: targetId ? { deviceId: { ideal: targetId }, width: { ideal: 1280 }, height: { ideal: 720 } } : true,
-      audio: false,
-    };
-
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Webcam API (getUserMedia) is not supported in this browser environment.');
+        throw new Error('Webcam API is not supported in this browser or context. Make sure you access the app via http://localhost:5173 or http://127.0.0.1:5173.');
+      }
+      
+      let mediaStream = null;
+
+      // Attempt 1: Ideal HD Resolution
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (hdErr) {
+        console.warn('HD camera constraints failed, trying basic video:true fallback...', hdErr);
+        // Attempt 2: Basic video true fallback
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
       }
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = mediaStream;
       setStream(mediaStream);
-      setIsStreaming(true);
+      setIsCameraActive(true);
 
-      // Refresh devices in case labels were restricted prior to permission
-      getDevices();
-    } catch (err) {
-      console.error('Camera access error:', err);
-      let userMsg = 'Failed to access webcam. Please check browser permissions.';
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        userMsg = 'Webcam permission denied. Please allow camera access in browser settings.';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        userMsg = 'No webcam device found on your system.';
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        userMsg = 'Webcam is currently in use by another application.';
-      } else if (err.name === 'OverconstrainedError') {
-        userMsg = 'Requested webcam resolution or device is not supported.';
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.play().catch(e => console.warn('Autoplay prevented:', e));
       }
-      setError(userMsg);
-      setIsStreaming(false);
+    } catch (err) {
+      console.error('Error accessing webcam:', err);
+      let errMsg = 'Failed to access camera.';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errMsg = 'Camera permission was denied in your browser or Windows Privacy Settings.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errMsg = 'No webcam device detected on your computer.';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errMsg = 'Camera is already in use by another application (e.g. Zoom, Teams, Skype, or Windows Camera app).';
+      } else if (err.name === 'OverconstrainedError') {
+        errMsg = 'Webcam does not satisfy resolution constraints.';
+      }
+      setError(errMsg);
+      setIsCameraActive(false);
     }
-  }, [selectedDeviceId, getDevices]);
+  }, []);
 
-  // Capture frame from active video stream as base64 data URI
+  const stopCamera = useCallback(() => {
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        track.stop();
+      });
+      setStream(null);
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  }, [stream]);
+
+  // Capture current video frame to JPEG Blob
   const captureFrame = useCallback(() => {
-    const video = videoRef.current;
-    if (!video || (!isStreaming && !streamRef.current)) {
-      setError('Camera is not active. Please click "Start Camera" first.');
-      return null;
-    }
+    return new Promise((resolve) => {
+      const video = videoRef.current;
+      if (!video || !isCameraActive) {
+        console.warn('captureFrame failed: Camera is not active.');
+        resolve(null);
+        return;
+      }
 
-    const width = video.videoWidth || video.clientWidth || 640;
-    const height = video.videoHeight || video.clientHeight || 480;
+      const width = video.videoWidth || video.clientWidth || 640;
+      const height = video.videoHeight || video.clientHeight || 480;
 
-    if (width === 0 || height === 0) {
-      setError('Video stream frame not ready yet. Please wait a moment.');
-      return null;
-    }
+      if (width === 0 || height === 0) {
+        console.warn('captureFrame failed: Video width or height is 0.');
+        resolve(null);
+        return;
+      }
 
-    const canvas = canvasRef.current || document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, width, height);
+      let canvas = canvasRef.current;
+      if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvasRef.current = canvas;
+      }
 
-    // Return base64 JPEG
-    return canvas.toDataURL('image/jpeg', 0.92);
-  }, [isStreaming]);
+      canvas.width = width;
+      canvas.height = height;
 
-  // Cleanup tracks on unmount
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.warn('captureFrame failed: Unable to get 2d canvas context.');
+        resolve(null);
+        return;
+      }
+
+      try {
+        ctx.drawImage(video, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              console.warn('captureFrame failed: canvas.toBlob returned null.');
+            } else {
+              console.log(`captureFrame success: captured frame ${blob.size} bytes (${width}x${height})`);
+            }
+            resolve(blob);
+          },
+          'image/jpeg',
+          0.92
+        );
+      } catch (err) {
+        console.error('captureFrame error during drawImage:', err);
+        resolve(null);
+      }
+    });
+  }, [isCameraActive]);
+
+  // Cleanup camera stream automatically on unmount
   useEffect(() => {
     return () => {
-      stopCamera();
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
     };
-  }, [stopCamera]);
+  }, [stream]);
 
   return {
     videoRef,
-    canvasRef,
-    isStreaming,
+    isCameraActive,
     error,
-    devices,
-    selectedDeviceId,
-    setSelectedDeviceId,
     startCamera,
     stopCamera,
-    captureFrame,
-    setError,
+    captureFrame
   };
 };
-
-export default useWebcam;

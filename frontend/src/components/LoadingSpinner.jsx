@@ -1,21 +1,18 @@
 import React from 'react';
 import { Loader2, Scan } from 'lucide-react';
 
-const LoadingSpinner = ({ message = 'Detecting objects...' }) => {
+const LoadingSpinner = ({ message = "Detecting objects using YOLO model..." }) => {
   return (
-    <div className="glass-card rounded-2xl p-8 text-center flex flex-col items-center justify-center space-y-4 my-4 animate-pulse-slow">
+    <div className="glass-panel p-8 rounded-2xl border border-brand-500/30 text-center flex flex-col items-center justify-center space-y-4 shadow-xl glow-blue">
       <div className="relative">
-        <div className="w-16 h-16 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-          <Scan className="w-8 h-8 animate-pulse" />
+        <div className="w-14 h-14 rounded-2xl bg-brand-500/20 border border-brand-500/40 flex items-center justify-center text-brand-400">
+          <Scan className="w-7 h-7 animate-pulse" />
         </div>
-        <Loader2 className="w-20 h-20 text-indigo-500 animate-spin absolute -top-2 -left-2 opacity-80" />
+        <Loader2 className="w-16 h-16 text-brand-500 animate-spin absolute -top-1 -left-1" />
       </div>
-
       <div>
-        <h4 className="font-heading font-semibold text-lg text-white">{message}</h4>
-        <p className="text-xs text-gray-400 mt-1 max-w-sm">
-          Processing image with Ultralytics YOLO model. Bounding boxes & confidence metrics will appear shortly.
-        </p>
+        <h4 className="text-base font-bold text-white tracking-wide">{message}</h4>
+        <p className="text-xs text-slate-400 mt-1">Extracting features and generating bounding boxes</p>
       </div>
     </div>
   );

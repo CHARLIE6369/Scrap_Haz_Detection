@@ -1,201 +1,201 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, CameraOff, Video, Sparkles, AlertCircle, Play } from 'lucide-react';
-import useWebcam from '../hooks/useWebcam';
+import { Camera, CameraOff, Play, Pause, RefreshCw, AlertCircle, Radio } from 'lucide-react';
+import { useWebcam } from '../hooks/useWebcam';
 
-const WebcamCard = ({ onDetectFrame, isLoading, liveDetection, setLiveDetection }) => {
-  const {
-    videoRef,
-    isStreaming,
-    error,
-    devices,
-    selectedDeviceId,
-    setSelectedDeviceId,
-    startCamera,
-    stopCamera,
-    captureFrame,
-  } = useWebcam();
+const WebcamCard = ({ onDetectFrame, isLoading, onClearResult }) => {
+  const { videoRef, isCameraActive, error, startCamera, stopCamera, captureFrame } = useWebcam();
 
+  const [isLiveMode, setIsLiveMode] = useState(false);
   const [liveIntervalMs, setLiveIntervalMs] = useState(1000);
-  const liveIntervalRef = useRef(null);
+  const liveTimerRef = useRef(null);
 
-  // Stop live detection when camera stops
-  useEffect(() => {
-    if (!isStreaming && liveDetection) {
-      setLiveDetection(false);
+  const handleCaptureAndDetect = async () => {
+    if (!isCameraActive || isLoading) return;
+    const blob = await captureFrame();
+    if (blob) {
+      onDetectFrame(blob);
+    } else {
+      console.warn('Frame capture produced null blob.');
     }
-  }, [isStreaming, liveDetection, setLiveDetection]);
+  };
 
-  // Live detection interval effect
+  // Live detection mode effect
   useEffect(() => {
-    if (liveDetection && isStreaming && !isLoading) {
-      liveIntervalRef.current = setInterval(() => {
-        const frameB64 = captureFrame();
-        if (frameB64) {
-          onDetectFrame(frameB64);
+    if (isLiveMode && isCameraActive) {
+      liveTimerRef.current = setInterval(async () => {
+        if (!isLoading) {
+          const blob = await captureFrame();
+          if (blob) {
+            onDetectFrame(blob);
+          }
         }
       }, liveIntervalMs);
     } else {
-      if (liveIntervalRef.current) {
-        clearInterval(liveIntervalRef.current);
+      if (liveTimerRef.current) {
+        clearInterval(liveTimerRef.current);
+        liveTimerRef.current = null;
       }
     }
 
     return () => {
-      if (liveIntervalRef.current) {
-        clearInterval(liveIntervalRef.current);
+      if (liveTimerRef.current) {
+        clearInterval(liveTimerRef.current);
       }
     };
-  }, [liveDetection, isStreaming, isLoading, liveIntervalMs, captureFrame, onDetectFrame]);
+  }, [isLiveMode, isCameraActive, liveIntervalMs, isLoading, captureFrame, onDetectFrame]);
 
-  const handleCaptureAndDetect = () => {
-    const frameB64 = captureFrame();
-    if (frameB64) {
-      onDetectFrame(frameB64);
-    }
+  const toggleLiveMode = () => {
+    if (!isCameraActive) return;
+    setIsLiveMode(prev => !prev);
   };
 
   return (
-    <div className="glass-card rounded-2xl p-6 relative overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            <Camera className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-heading font-semibold text-lg text-white">Webcam Detection</h3>
-            <p className="text-xs text-gray-400">Capture frames or stream live to detect objects</p>
-          </div>
+    <div className="glass-panel p-6 rounded-2xl border border-slate-800 shadow-xl space-y-4">
+      
+      {/* Header Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Camera className="w-5 h-5 text-brand-500" />
+            Webcam Object Detection
+          </h2>
+          <p className="text-xs text-slate-400">Stream camera feed and run YOLO object detection on frames</p>
         </div>
 
-        {/* Camera Controls */}
-        <div className="flex items-center space-x-2">
-          {devices.length > 1 && (
-            <select
-              value={selectedDeviceId}
-              onChange={(e) => {
-                setSelectedDeviceId(e.target.value);
-                startCamera(e.target.value);
-              }}
-              className="bg-gray-900 border border-gray-700 text-gray-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500"
-            >
-              {devices.map((device, idx) => (
-                <option key={device.deviceId || idx} value={device.deviceId}>
-                  {device.label || `Camera ${idx + 1}`}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {!isStreaming ? (
+        <div className="flex items-center gap-2">
+          {!isCameraActive ? (
             <button
-              onClick={() => startCamera()}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-medium text-xs shadow-lg shadow-cyan-500/20 transition-all active:scale-95"
+              onClick={startCamera}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-lg shadow-emerald-600/20 transition-colors"
             >
-              <Video className="w-4 h-4" />
-              <span>Start Camera</span>
+              <Camera className="w-4 h-4" />
+              Start Camera
             </button>
           ) : (
             <button
-              onClick={stopCamera}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-medium text-xs transition-all active:scale-95"
+              onClick={() => {
+                setIsLiveMode(false);
+                stopCamera();
+              }}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-lg shadow-rose-600/20 transition-colors"
             >
               <CameraOff className="w-4 h-4" />
-              <span>Stop Camera</span>
+              Stop Camera
+            </button>
+          )}
+
+          {onClearResult && (
+            <button
+              onClick={onClearResult}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs text-slate-400 hover:text-slate-200 bg-slate-800/80 hover:bg-slate-700/80 rounded-xl border border-slate-700/60 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Clear
             </button>
           )}
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Video Display Container */}
-      <div className="relative rounded-xl overflow-hidden bg-black/60 border border-gray-800 aspect-video flex items-center justify-center">
+      {/* Camera Stream Viewport */}
+      <div className="relative rounded-2xl overflow-hidden bg-dark-900 border border-slate-800 aspect-video flex items-center justify-center">
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          className={`w-full h-full object-contain ${!isStreaming ? 'hidden' : 'block'}`}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            isCameraActive ? 'opacity-100' : 'opacity-0 absolute pointer-events-none'
+          }`}
         />
 
-        {!isStreaming && (
-          <div className="text-center p-8">
-            <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-500">
+        {!isCameraActive && (
+          <div className="text-center p-8 flex flex-col items-center">
+            <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-500 mb-3">
               <CameraOff className="w-8 h-8" />
             </div>
-            <p className="text-gray-400 text-sm font-medium">Camera is offline</p>
-            <p className="text-gray-500 text-xs mt-1">Click "Start Camera" to initialize your webcam stream</p>
+            <h3 className="text-sm font-semibold text-slate-300">Camera is turned off</h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs">
+              Click "Start Camera" to enable your webcam and begin detecting objects in real time.
+            </p>
           </div>
         )}
 
-        {isStreaming && (
-          <div className="absolute top-3 left-3 flex items-center space-x-2">
-            <span className="flex h-2.5 w-2.5 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[11px] font-mono text-emerald-400 border border-emerald-500/30">
-              LIVE
-            </span>
+        {/* Live Indicator Badge */}
+        {isCameraActive && (
+          <div className="absolute top-3 left-3 bg-dark-900/80 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-semibold border border-slate-700/80 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse glow-emerald"></span>
+            <span className="text-emerald-400">LIVE FEED</span>
+            {isLiveMode && (
+              <span className="px-2 py-0.5 rounded bg-brand-500/20 text-brand-400 text-[10px] font-bold">
+                AUTO ({liveIntervalMs}ms)
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      {/* Action Buttons & Controls */}
-      {isStreaming && (
-        <div className="mt-4 pt-4 border-t border-gray-800 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleCaptureAndDetect}
-              disabled={isLoading || liveDetection}
-              className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-medium text-xs transition-all shadow-md ${
-                isLoading || liveDetection
-                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                  : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20 active:scale-95'
-              }`}
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Capture & Detect</span>
-            </button>
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 space-y-2">
+          <div className="flex items-center gap-3 font-semibold text-rose-200">
+            <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+            <span>{error}</span>
           </div>
-
-          {/* Optional Live Mode Toggle */}
-          <div className="flex items-center space-x-4 bg-gray-900/80 px-3.5 py-1.5 rounded-xl border border-gray-800">
-            <label className="flex items-center space-x-2 text-xs text-gray-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={liveDetection}
-                onChange={(e) => setLiveDetection(e.target.checked)}
-                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-gray-800 border-gray-700"
-              />
-              <span className="font-medium flex items-center space-x-1">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Live Mode</span>
-              </span>
-            </label>
-
-            {liveDetection && (
-              <div className="flex items-center space-x-2 text-[11px] text-gray-400">
-                <span>Interval:</span>
-                <select
-                  value={liveIntervalMs}
-                  onChange={(e) => setLiveIntervalMs(Number(e.target.value))}
-                  className="bg-gray-800 border border-gray-700 text-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none"
-                >
-                  <option value={500}>500 ms</option>
-                  <option value={1000}>1000 ms</option>
-                  <option value={2000}>2000 ms</option>
-                </select>
-              </div>
-            )}
+          <div className="pl-8 text-[11px] text-slate-300 space-y-1">
+            <p><strong>Quick Fix Checklist:</strong></p>
+            <ul className="list-disc list-inside space-y-1 text-slate-400">
+              <li><strong>Browser Permission:</strong> Click the lock/tune icon next to <code>http://localhost:5173</code> in your address bar and set <em>Camera</em> to <strong>Allow</strong>, then refresh.</li>
+              <li><strong>Windows Privacy Settings:</strong> Open Windows Settings &rarr; <em>Privacy & Security</em> &rarr; <em>Camera</em> &rarr; Turn ON <em>"Let apps access your camera"</em> and <em>"Let desktop apps access your camera"</em>.</li>
+              <li><strong>Camera Lock:</strong> Close Zoom, Teams, Skype, or Windows Camera app if they are running.</li>
+            </ul>
           </div>
         </div>
       )}
+
+      {/* Action Controls */}
+      {isCameraActive && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleCaptureAndDetect}
+              disabled={isLoading}
+              className={`px-5 py-2.5 rounded-xl font-semibold text-xs text-white shadow-lg transition-all flex items-center gap-2 ${
+                isLoading
+                  ? 'bg-slate-700 cursor-not-allowed'
+                  : 'bg-brand-600 hover:bg-brand-500 shadow-brand-600/25 active:scale-95'
+              }`}
+            >
+              <Radio className="w-4 h-4 text-brand-300" />
+              Capture & Detect Frame
+            </button>
+          </div>
+
+          {/* Live Detection Options */}
+          <div className="flex items-center gap-2 bg-slate-800/60 p-1.5 rounded-xl border border-slate-700/60">
+            <button
+              onClick={toggleLiveMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                isLiveMode
+                  ? 'bg-brand-500 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {isLiveMode ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              {isLiveMode ? 'Pause Live' : 'Live Detection'}
+            </button>
+
+            <select
+              value={liveIntervalMs}
+              onChange={(e) => setLiveIntervalMs(Number(e.target.value))}
+              className="bg-slate-900 text-xs text-slate-300 px-2 py-1.5 rounded-lg border border-slate-700 focus:outline-none"
+            >
+              <option value={500}>500 ms</option>
+              <option value={1000}>1 sec</option>
+              <option value={2000}>2 sec</option>
+            </select>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

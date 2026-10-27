@@ -1,40 +1,41 @@
-import React, { useState, useRef } from 'react';
-import { Upload, Image as ImageIcon, X, AlertTriangle, Play } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { UploadCloud, Image as ImageIcon, X, AlertTriangle, FileCheck } from 'lucide-react';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-const ALLOWED_EXTS = ['.jpg', '.jpeg', '.png', '.webp'];
-const MAX_SIZE_MB = 10;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-const UploadCard = ({ onFileSelected, selectedFile, previewUrl, onClear, onDetect, isLoading }) => {
+const UploadCard = ({ selectedFile, setSelectedFile, imagePreview, setImagePreview, onDetect, isLoading }) => {
+  const fileInputRef = useRef(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [validationError, setValidationError] = useState(null);
-  const fileInputRef = useRef(null);
 
-  const validateAndPassFile = (file) => {
+  const validateAndSetFile = (file) => {
     setValidationError(null);
+
     if (!file) return;
 
-    // Extension check
-    const fileName = file.name.toLowerCase();
-    const isValidExt = ALLOWED_EXTS.some((ext) => fileName.endsWith(ext));
-    if (!isValidExt) {
-      setValidationError('Please upload a valid JPG, PNG, JPEG, or WEBP image.');
+    if (!ALLOWED_TYPES.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|webp)$/i)) {
+      setValidationError('Invalid file format. Please upload JPG, JPEG, PNG, or WEBP.');
       return;
     }
 
-    // Size check
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      setValidationError(`Maximum file size is ${MAX_SIZE_MB} MB.`);
+    if (file.size > MAX_FILE_SIZE) {
+      setValidationError('File size exceeds the 10 MB limit.');
       return;
     }
 
-    onFileSelected(file);
+    setSelectedFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      validateAndPassFile(file);
+    if (e.target.files && e.target.files[0]) {
+      validateAndSetFile(e.target.files[0]);
     }
   };
 
@@ -51,119 +52,109 @@ const UploadCard = ({ onFileSelected, selectedFile, previewUrl, onClear, onDetec
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      validateAndPassFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      validateAndSetFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedFile(null);
+    setImagePreview(null);
+    setValidationError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   return (
-    <div className="glass-card rounded-2xl p-6 relative overflow-hidden">
+    <div className="glass-panel p-6 rounded-2xl border border-slate-800 shadow-xl">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <Upload className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-heading font-semibold text-lg text-white">Upload Image</h3>
-            <p className="text-xs text-gray-400">Select a local image file to run YOLO inference</p>
-          </div>
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <ImageIcon className="w-5 h-5 text-brand-500" />
+            Upload Image
+          </h2>
+          <p className="text-xs text-slate-400">Select an image (JPG, PNG, WEBP, up to 10MB) for YOLO inference</p>
         </div>
 
         {selectedFile && (
           <button
-            onClick={onClear}
+            onClick={clearSelection}
             disabled={isLoading}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-            title="Clear Image"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-400 hover:text-rose-400 bg-slate-800/60 hover:bg-rose-500/10 rounded-lg transition-colors border border-slate-700/60"
           >
-            <X className="w-5 h-5" />
+            <X className="w-3.5 h-3.5" />
+            Clear
           </button>
         )}
       </div>
 
       {validationError && (
-        <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
+        <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-3 text-xs text-rose-300">
+          <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
           <span>{validationError}</span>
         </div>
       )}
 
-      {/* Upload Zone / Preview */}
-      {!previewUrl ? (
+      {/* Upload Drop Zone / Image Preview */}
+      {!imagePreview ? (
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 ${
+          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center min-h-[260px] ${
             isDragOver
-              ? 'border-indigo-400 bg-indigo-500/10 scale-[0.99]'
-              : 'border-gray-700/80 hover:border-indigo-500/50 hover:bg-gray-800/30'
+              ? 'border-brand-500 bg-brand-500/10 scale-[0.99]'
+              : 'border-slate-700/80 hover:border-brand-500/60 bg-dark-800/40 hover:bg-dark-800/80'
           }`}
         >
           <input
-            type="file"
             ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/jpg"
             onChange={handleFileChange}
-            accept=".jpg,.jpeg,.png,.webp"
             className="hidden"
           />
 
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-800/80 border border-gray-700/60 flex items-center justify-center text-indigo-400 shadow-inner">
-            <ImageIcon className="w-8 h-8" />
+          <div className="w-16 h-16 rounded-2xl bg-brand-500/10 flex items-center justify-center text-brand-500 mb-4 group-hover:scale-110 transition-transform">
+            <UploadCloud className="w-8 h-8" />
           </div>
 
-          <h4 className="font-medium text-gray-200 mb-1">
-            Drag & drop your image here, or <span className="text-indigo-400 underline underline-offset-2">browse</span>
-          </h4>
-          <p className="text-xs text-gray-400">
-            Supports JPG, JPEG, PNG, WEBP (Max {MAX_SIZE_MB}MB)
-          </p>
+          <h3 className="text-base font-semibold text-slate-200 mb-1">
+            Drag & Drop your image here
+          </h3>
+          <p className="text-xs text-slate-400 mb-4">or click to browse from your computer</p>
+
+          <span className="inline-flex items-center px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-500 rounded-xl shadow-lg shadow-brand-600/30 transition-all">
+            Browse File
+          </span>
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="relative rounded-xl overflow-hidden bg-black/40 border border-gray-800 aspect-video flex items-center justify-center">
+          <div className="relative rounded-2xl overflow-hidden bg-dark-800 border border-slate-800 max-h-[360px] flex items-center justify-center group">
             <img
-              src={previewUrl}
-              alt="Uploaded preview"
-              className="max-h-full max-w-full object-contain"
+              src={imagePreview}
+              alt="Selected Preview"
+              className="max-h-[360px] w-auto object-contain rounded-xl"
             />
-            <div className="absolute top-2 right-2 px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-gray-700 text-[11px] text-gray-300 font-mono">
-              {selectedFile?.name || 'Uploaded Image'}
+            <div className="absolute top-3 left-3 bg-dark-900/80 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-medium text-slate-300 border border-slate-700 flex items-center gap-1.5">
+              <FileCheck className="w-3.5 h-3.5 text-emerald-400" />
+              {selectedFile?.name} ({(selectedFile?.size / (1024 * 1024)).toFixed(2)} MB)
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
-              className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline flex items-center space-x-1"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Change Image</span>
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".jpg,.jpeg,.png,.webp"
-              className="hidden"
-            />
-
-            <button
-              onClick={onDetect}
-              disabled={isLoading}
-              className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl font-medium text-sm transition-all shadow-lg ${
-                isLoading
-                  ? 'bg-indigo-600/50 text-indigo-200 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white shadow-indigo-500/25 active:scale-95'
-              }`}
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>{isLoading ? 'Detecting objects...' : 'Run YOLO Detection'}</span>
-            </button>
-          </div>
+          <button
+            onClick={onDetect}
+            disabled={isLoading}
+            className={`w-full py-3.5 px-6 rounded-xl font-semibold text-sm shadow-xl transition-all duration-200 flex items-center justify-center gap-2 ${
+              isLoading
+                ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-brand-600 to-brand-accent text-white hover:opacity-95 shadow-brand-500/25 active:scale-[0.99]'
+            }`}
+          >
+            {isLoading ? 'Processing YOLO Model...' : 'Run YOLO Object Detection'}
+          </button>
         </div>
       )}
     </div>
