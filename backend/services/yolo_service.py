@@ -15,26 +15,42 @@ class YOLOService:
             cls._instance._initialized = False
         return cls._instance
 
-    def initialize(self, model_path: str):
+    def initialize(self, model_path: str = None):
         """
         Load YOLO model once upon Flask application startup.
         """
-        if self._initialized:
+        if getattr(self, "_initialized", False):
             return
 
-        self.model_path = model_path
         self.model = None
         self.load_error = None
         self.class_names = {}
 
-        if not os.path.exists(model_path):
+        # Resolve model path across candidate locations (root or backend dir)
+        resolved_path = None
+        candidates = [
+            model_path,
+            os.path.join(os.path.dirname(__file__), "..", "models", "best.pt"),
+            os.path.join(os.getcwd(), "backend", "models", "best.pt"),
+            os.path.join(os.getcwd(), "models", "best.pt"),
+            "./models/best.pt",
+            "backend/models/best.pt"
+        ]
+        for c in candidates:
+            if c and os.path.exists(c):
+                resolved_path = os.path.abspath(c)
+                break
+
+        self.model_path = resolved_path or model_path
+
+        if not self.model_path or not os.path.exists(self.model_path):
             self.load_error = f"YOLO model file not found at '{model_path}'. Please verify best.pt exists."
             print(f"[YOLOService ERROR] {self.load_error}")
             return
 
         try:
-            print(f"[YOLOService] Loading YOLO model from {model_path}...")
-            self.model = YOLO(model_path)
+            print(f"[YOLOService] Loading YOLO model from {self.model_path}...")
+            self.model = YOLO(self.model_path)
             
             # Obtain model class names dynamically
             raw_names = {}
@@ -71,20 +87,28 @@ class YOLOService:
             self.load_error = f"Failed to initialize YOLO model: {str(e)}"
             print(f"[YOLOService ERROR] {self.load_error}")
 
+    def load_model(self, model_path: str = None):
+        """
+        Alias for initialize() to support diverse entrypoints.
+        """
+        return self.initialize(model_path)
+
     def is_loaded(self) -> bool:
-        return self._initialized and self.model is not None
+        return getattr(self, "_initialized", False) and getattr(self, "model", None) is not None
 
     def get_model_info(self) -> dict:
         """
         Return metadata about the loaded model.
         """
+        model_path = getattr(self, "model_path", None)
+        class_names = getattr(self, "class_names", {})
         return {
-            "model_path": os.path.basename(self.model_path) if self.model_path else None,
+            "model_path": os.path.basename(model_path) if model_path else None,
             "model_loaded": self.is_loaded(),
-            "class_names": self.class_names,
-            "class_count": len(self.class_names),
+            "class_names": class_names,
+            "class_count": len(class_names),
             "swap_classes": os.getenv("SWAP_CLASSES", "false").lower() in ("true", "1", "yes"),
-            "error": self.load_error
+            "error": getattr(self, "load_error", None)
         }
 
     def detect(self, image_bytes: bytes, confidence_threshold: float = 0.25) -> dict:
