@@ -78,9 +78,21 @@ class YOLOService:
                 else:
                     self.class_names = {0: "shock absorber", 1: "cylinder"}
                 print(f"[YOLOService] SWAP_CLASSES active. Inverted class names: {self.class_names}")
-            else:
-                self.class_names = raw_names
-            
+            # Optimize PyTorch CPU execution for container environments (Render 0.1 vCPU)
+            try:
+                import torch
+                torch.set_num_threads(2)
+            except Exception:
+                pass
+
+            # Pre-warm model graph with dummy inference to avoid cold-start timeout on user requests
+            try:
+                dummy_frame = np.zeros((640, 640, 3), dtype=np.uint8)
+                self.model(dummy_frame, imgsz=640, verbose=False)
+                print("[YOLOService] Startup model warmup complete.")
+            except Exception as e:
+                print(f"[YOLOService WARNING] Startup warmup skipped: {e}")
+
             self._initialized = True
             print(f"[YOLOService] Model loaded successfully! Classes: {self.class_names}")
         except Exception as e:
