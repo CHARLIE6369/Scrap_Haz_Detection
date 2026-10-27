@@ -78,7 +78,8 @@ class YOLOService:
                 else:
                     self.class_names = {0: "shock absorber", 1: "cylinder"}
                 print(f"[YOLOService] SWAP_CLASSES active. Inverted class names: {self.class_names}")
-            # Optimize PyTorch CPU execution for container environments (Render 0.1 vCPU)
+            else:
+                self.class_names = raw_names
             try:
                 import torch
                 torch.set_num_threads(2)
@@ -87,8 +88,9 @@ class YOLOService:
 
             # Pre-warm model graph with dummy inference to avoid cold-start timeout on user requests
             try:
-                dummy_frame = np.zeros((640, 640, 3), dtype=np.uint8)
-                self.model(dummy_frame, imgsz=640, verbose=False)
+                dummy_frame = np.zeros((480, 480, 3), dtype=np.uint8)
+                with torch.inference_mode():
+                    self.model(dummy_frame, imgsz=480, verbose=False)
                 print("[YOLOService] Startup model warmup complete.")
             except Exception as e:
                 print(f"[YOLOService WARNING] Startup warmup skipped: {e}")
@@ -134,9 +136,11 @@ class YOLOService:
         bgr_image = read_image_from_bytes(image_bytes)
         annotated_bgr = bgr_image.copy()
 
-        # Measure inference time with explicit resolution and IoU threshold
+        # Measure inference time with torch.inference_mode and 480px resolution for ultra-fast CPU inference
         start_time = time.time()
-        results = self.model(bgr_image, conf=confidence_threshold, iou=0.45, imgsz=640)
+        import torch
+        with torch.inference_mode():
+            results = self.model(bgr_image, conf=confidence_threshold, iou=0.45, imgsz=480)
         inference_time_ms = round((time.time() - start_time) * 1000, 2)
 
         detections = []
