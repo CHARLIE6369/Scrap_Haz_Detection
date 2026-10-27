@@ -1,420 +1,196 @@
-import gc
+import os
 import time
-from pathlib import Path
-
+import json
 import cv2
-import torch
+import numpy as np
 from ultralytics import YOLO
-
-from config import Config
-from services.image_service import ImageService
-
+from services.image_service import read_image_from_bytes, encode_image_to_base64
 
 class YOLOService:
     _instance = None
-    _model = None
-    _model_path = None
 
-    def __new__(cls):
+    def __new__(cls, model_path=None):
         if cls._instance is None:
             cls._instance = super(YOLOService, cls).__new__(cls)
-
+            cls._instance._initialized = False
         return cls._instance
 
-    # ============================================================
-    # LOAD MODEL
-    # ============================================================
-
-    def load_model(self, model_path=None):
-
-        # Do not load the model multiple times
-        if self._model is not None:
+    def initialize(self, model_path: str):
+        """
+        Load YOLO model once upon Flask application startup.
+        """
+        if self._initialized:
             return
 
-        target_path = model_path or Config.MODEL_PATH
-        resolved_path = Path(target_path).resolve()
+        self.model_path = model_path
+        self.model = None
+        self.load_error = None
+        self.class_names = {}
 
-        if not resolved_path.exists():
-            raise FileNotFoundError(
-                f"YOLO model file not found: {resolved_path}"
-            )
+        if not os.path.exists(model_path):
+            self.load_error = f"YOLO model file not found at '{model_path}'. Please verify best.pt exists."
+            print(f"[YOLOService ERROR] {self.load_error}")
+            return
 
         try:
+            print(f"[YOLOService] Loading YOLO model from {model_path}...")
+            self.model = YOLO(model_path)
+            
+            # Obtain model class names dynamically
+            raw_names = {}
+            if hasattr(self.model, 'names') and isinstance(self.model.names, dict):
+                raw_names = {int(k): str(v) for k, v in self.model.names.items()}
+            elif hasattr(self.model, 'names') and isinstance(self.model.names, list):
+                raw_names = {i: name for i, name in enumerate(self.model.names)}
+            else:
+                raw_names = {0: "cylinder", 1: "shock absorber"}
 
-            print("[YOLOService] Loading YOLO model...")
-            print(f"[YOLOService] Model path: {resolved_path}")
-            print("[YOLOService] Device: CPU")
-
-            # ----------------------------------------------------
-            # Reduce CPU memory usage
-            # ----------------------------------------------------
-
-            torch.set_num_threads(1)
-
-            try:
-                torch.set_num_interop_threads(1)
-            except RuntimeError:
-                # Thread count may already have been initialized
-                pass
-
-            # ----------------------------------------------------
-            # Load YOLO model
-            # ----------------------------------------------------
-
-            self._model = YOLO(str(resolved_path))
-
-            # Force model to CPU
-            self._model.to("cpu")
-
-            self._model_path = str(resolved_path)
-
-            print(
-                "[YOLOService] Model successfully loaded from: "
-                f"{self._model_path}"
-            )
-
+            # Check if custom CLASS_MAPPING is provided in .env
+            custom_mapping = os.getenv("CLASS_MAPPING")
+            if custom_mapping:
+                try:
+                    parsed = json.loads(custom_mapping)
+                    self.class_names = {int(k): str(v) for k, v in parsed.items()}
+                    print(f"[YOLOService] Applied custom CLASS_MAPPING from env: {self.class_names}")
+                except Exception as e:
+                    print(f"[YOLOService WARNING] Could not parse CLASS_MAPPING: {e}")
+                    self.class_names = raw_names
+            # Check if SWAP_CLASSES=true is set in .env
+            elif os.getenv("SWAP_CLASSES", "false").lower() in ("true", "1", "yes"):
+                if 0 in raw_names and 1 in raw_names:
+                    self.class_names = {0: raw_names[1], 1: raw_names[0]}
+                else:
+                    self.class_names = {0: "shock absorber", 1: "cylinder"}
+                print(f"[YOLOService] SWAP_CLASSES active. Inverted class names: {self.class_names}")
+            else:
+                self.class_names = raw_names
+            
+            self._initialized = True
+            print(f"[YOLOService] Model loaded successfully! Classes: {self.class_names}")
         except Exception as e:
+            self.load_error = f"Failed to initialize YOLO model: {str(e)}"
+            print(f"[YOLOService ERROR] {self.load_error}")
 
-            self._model = None
+    def is_loaded(self) -> bool:
+        return self._initialized and self.model is not None
 
-            raise RuntimeError(
-                f"Failed to load YOLO model: {str(e)}"
-            )
-
-    # ============================================================
-    # MODEL STATUS
-    # ============================================================
-
-    def is_loaded(self):
-        return self._model is not None
-
-    # ============================================================
-    # MODEL INFORMATION
-    # ============================================================
-
-    def get_model_info(self):
-
-        if not self.is_loaded():
-
-            return {
-                "model_loaded": False,
-                "model_name": None,
-                "num_classes": 0,
-                "class_names": {}
-            }
-
-        class_names = getattr(
-            self._model,
-            "names",
-            {}
-        )
-
-        if isinstance(class_names, list):
-
-            names_dict = {
-                i: name
-                for i, name in enumerate(class_names)
-            }
-
-        elif isinstance(class_names, dict):
-
-            names_dict = {
-                int(k): v
-                for k, v in class_names.items()
-            }
-
-        else:
-
-            names_dict = {}
-
+    def get_model_info(self) -> dict:
+        """
+        Return metadata about the loaded model.
+        """
         return {
-            "model_loaded": True,
-            "model_name": (
-                Path(self._model_path).name
-                if self._model_path
-                else "yolo_model"
-            ),
-            "num_classes": len(names_dict),
-            "class_names": names_dict
+            "model_path": os.path.basename(self.model_path) if self.model_path else None,
+            "model_loaded": self.is_loaded(),
+            "class_names": self.class_names,
+            "class_count": len(self.class_names),
+            "swap_classes": os.getenv("SWAP_CLASSES", "false").lower() in ("true", "1", "yes"),
+            "error": self.load_error
         }
 
-    # ============================================================
-    # IMAGE RESIZE
-    # ============================================================
-
-    def _resize_for_inference(self, image, max_size=640):
-
-        height, width = image.shape[:2]
-
-        largest_dimension = max(
-            height,
-            width
-        )
-
-        if largest_dimension <= max_size:
-            return image
-
-        scale = max_size / largest_dimension
-
-        new_width = max(
-            1,
-            int(width * scale)
-        )
-
-        new_height = max(
-            1,
-            int(height * scale)
-        )
-
-        print(
-            "[YOLOService] Resizing image: "
-            f"{width}x{height} -> "
-            f"{new_width}x{new_height}"
-        )
-
-        resized = cv2.resize(
-            image,
-            (new_width, new_height),
-            interpolation=cv2.INTER_AREA
-        )
-
-        return resized
-
-    # ============================================================
-    # PREDICTION
-    # ============================================================
-
-    def predict(
-        self,
-        cv2_img,
-        confidence_threshold=0.5
-    ):
-
+    def detect(self, image_bytes: bytes, confidence_threshold: float = 0.25) -> dict:
+        """
+        Perform YOLO inference on raw image bytes.
+        """
         if not self.is_loaded():
-            self.load_model()
+            raise RuntimeError(self.load_error or "YOLO model is not loaded.")
 
-        if cv2_img is None:
-            raise ValueError(
-                "Input image is empty."
-            )
+        # Read image to BGR numpy array (standard OpenCV format expected by Ultralytics YOLO)
+        bgr_image = read_image_from_bytes(image_bytes)
+        annotated_bgr = bgr_image.copy()
 
+        # Measure inference time with explicit resolution and IoU threshold
         start_time = time.time()
+        results = self.model(bgr_image, conf=confidence_threshold, iou=0.45, imgsz=640)
+        inference_time_ms = round((time.time() - start_time) * 1000, 2)
 
-        print(
-            "[YOLOService] Starting CPU inference..."
-        )
+        detections = []
+        highest_confidence = 0.0
+        
+        # Color palette for classes (BGR format for OpenCV)
+        # Class 0 (Cylinder): Vibrant Blue (255, 140, 0)
+        # Class 1 (Shock Absorber): Bright Orange (0, 120, 255)
+        palette_bgr = [
+            (255, 140, 0),   # Blue in BGR
+            (0, 120, 255),   # Orange in BGR
+            (50, 205, 50),   # Lime Green
+            (138, 43, 226),  # Violet
+            (0, 215, 255),   # Gold
+            (255, 0, 255)    # Magenta
+        ]
 
-        # --------------------------------------------------------
-        # Resize large images
-        # --------------------------------------------------------
+        for result in results:
+            boxes = result.boxes
+            if boxes is None:
+                continue
 
-        inference_img = self._resize_for_inference(
-            cv2_img,
-            max_size=640
-        )
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                confidence = float(box.conf[0])
+                class_id = int(box.cls[0])
+                class_name = self.class_names.get(class_id, f"Class {class_id}")
 
-        try:
+                if confidence > highest_confidence:
+                    highest_confidence = confidence
 
-            # ----------------------------------------------------
-            # YOLO inference
-            # ----------------------------------------------------
-            #
-            # imgsz=320 significantly reduces memory usage.
-            #
-            # inference_mode() prevents gradient tracking.
-            #
-            # device=cpu prevents accidental GPU allocation.
-            #
-            # max_det=20 prevents excessive detections/memory.
-            # ----------------------------------------------------
+                detections.append({
+                    "class_id": class_id,
+                    "class_name": class_name,
+                    "confidence": round(confidence, 4),
+                    "confidence_pct": round(confidence * 100, 1),
+                    "bbox": {
+                        "x1": x1,
+                        "y1": y1,
+                        "x2": x2,
+                        "y2": y2
+                    }
+                })
 
-            with torch.inference_mode():
+                # Draw bounding box and label directly on annotated_bgr image
+                color = palette_bgr[class_id % len(palette_bgr)]
+                
+                # Thick bounding rectangle
+                cv2.rectangle(annotated_bgr, (x1, y1), (x2, y2), color, 3)
 
-                results = self._model.predict(
-                    source=inference_img,
-                    conf=confidence_threshold,
-                    imgsz=320,
-                    device="cpu",
-                    verbose=False,
-                    save=False,
-                    stream=False,
-                    max_det=20
+                # Label text and background rectangle
+                label = f"{class_name} {confidence * 100:.1f}%"
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.6
+                thickness = 2
+                (text_w, text_h), baseline = cv2.getTextSize(label, font, font_scale, thickness)
+                
+                # Make sure label stays within frame
+                label_y1 = max(y1, text_h + 10)
+                cv2.rectangle(
+                    annotated_bgr,
+                    (x1, label_y1 - text_h - 6),
+                    (x1 + text_w + 10, label_y1 + baseline - 2),
+                    color,
+                    -1
+                )
+                cv2.putText(
+                    annotated_bgr,
+                    label,
+                    (x1 + 5, label_y1 - 4),
+                    font,
+                    font_scale,
+                    (255, 255, 255),
+                    thickness,
+                    cv2.LINE_AA
                 )
 
-            inference_time_ms = round(
-                (time.time() - start_time) * 1000,
-                2
-            )
+        # Base64 encode annotated result (already BGR)
+        annotated_b64 = encode_image_to_base64(annotated_bgr)
 
-            print(
-                "[YOLOService] Inference completed in "
-                f"{inference_time_ms} ms"
-            )
+        # Calculate class distribution summary
+        unique_classes_detected = len(set(d["class_id"] for d in detections))
 
-            detections = []
-
-            annotated_bgr = None
-
-            # ----------------------------------------------------
-            # Process YOLO result
-            # ----------------------------------------------------
-
-            if results:
-
-                result = results[0]
-
-                # Create annotated image
-                annotated_bgr = result.plot()
-
-                boxes = result.boxes
-
-                if boxes is not None and len(boxes) > 0:
-
-                    for box in boxes:
-
-                        x1, y1, x2, y2 = map(
-                            int,
-                            box.xyxy[0].tolist()
-                        )
-
-                        conf = float(
-                            box.conf[0]
-                        )
-
-                        class_id = int(
-                            box.cls[0]
-                        )
-
-                        class_name = self._model.names.get(
-                            class_id,
-                            f"Class {class_id}"
-                        )
-
-                        detections.append({
-
-                            "class_id": class_id,
-
-                            "class_name": class_name,
-
-                            "confidence": round(
-                                conf,
-                                4
-                            ),
-
-                            "confidence_percent": round(
-                                conf * 100,
-                                1
-                            ),
-
-                            "bbox": {
-
-                                "x1": x1,
-                                "y1": y1,
-                                "x2": x2,
-                                "y2": y2
-                            }
-                        })
-
-            # ----------------------------------------------------
-            # If nothing detected
-            # ----------------------------------------------------
-
-            if annotated_bgr is None:
-
-                annotated_bgr = inference_img.copy()
-
-            # ----------------------------------------------------
-            # Convert images to Base64
-            # ----------------------------------------------------
-
-            annotated_b64 = (
-                ImageService.cv2_to_base64(
-                    annotated_bgr
-                )
-            )
-
-            original_b64 = (
-                ImageService.cv2_to_base64(
-                    inference_img
-                )
-            )
-
-            # ----------------------------------------------------
-            # Statistics
-            # ----------------------------------------------------
-
-            if detections:
-
-                highest_conf = max(
-                    d["confidence_percent"]
-                    for d in detections
-                )
-
-                unique_classes = len(
-                    set(
-                        d["class_id"]
-                        for d in detections
-                    )
-                )
-
-            else:
-
-                highest_conf = 0.0
-                unique_classes = 0
-
-            # ----------------------------------------------------
-            # Return API response
-            # ----------------------------------------------------
-
-            return {
-
-                "success": True,
-
-                "count": len(
-                    detections
-                ),
-
-                "detections": detections,
-
-                "inference_time_ms":
-                    inference_time_ms,
-
-                "statistics": {
-
-                    "total_objects":
-                        len(detections),
-
-                    "highest_confidence":
-                        highest_conf,
-
-                    "classes_detected":
-                        unique_classes,
-
-                    "inference_time_ms":
-                        inference_time_ms
-                },
-
-                "annotated_image":
-                    annotated_b64,
-
-                "original_image":
-                    original_b64
-            }
-
-        finally:
-
-            # ----------------------------------------------------
-            # Release temporary memory
-            # ----------------------------------------------------
-
-            inference_img = None
-            annotated_bgr = None
-
-            gc.collect()
-
-            try:
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-            except Exception:
-                pass
-
+        return {
+            "detections": detections,
+            "count": len(detections),
+            "highest_confidence": round(highest_confidence, 4),
+            "highest_confidence_pct": round(highest_confidence * 100, 1),
+            "unique_classes_detected": unique_classes_detected,
+            "inference_time_ms": inference_time_ms,
+            "confidence_threshold": confidence_threshold,
+            "annotated_image": annotated_b64
+        }

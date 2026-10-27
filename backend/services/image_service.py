@@ -1,32 +1,39 @@
-import base64
 import io
+import base64
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
-class ImageService:
-    @staticmethod
-    def bytes_to_cv2(image_bytes):
-        """Converts raw image bytes (JPEG/PNG/WEBP) to OpenCV BGR image array."""
-        np_arr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-        if img is None:
-            raise ValueError("Could not decode image bytes into valid image.")
-        return img
+def read_image_from_bytes(file_bytes: bytes) -> np.ndarray:
+    """
+    Safely load raw byte array into BGR numpy array format (standard OpenCV format).
+    Handles EXIF orientation tags automatically via PIL.
+    Note: Ultralytics YOLO expects numpy arrays in BGR uint8 format (OpenCV standard)
+    and flips them internally (BGR to RGB) during its preprocess step.
+    """
+    pil_image = Image.open(io.BytesIO(file_bytes))
+    
+    # Auto-rotate image according to EXIF Orientation tag if present
+    try:
+        pil_image = ImageOps.exif_transpose(pil_image)
+    except Exception:
+        pass
 
-    @staticmethod
-    def cv2_to_base64(cv2_img, format=".jpg"):
-        """Converts OpenCV BGR image array to base64 string."""
-        success, buffer = cv2.imencode(format, cv2_img)
-        if not success:
-            raise ValueError("Failed to encode image to JPEG buffer.")
-        b64_encoded = base64.b64encode(buffer).decode("utf-8")
-        return f"data:image/jpeg;base64,{b64_encoded}"
+    # Convert to RGB mode if RGBA or P palette
+    if pil_image.mode != 'RGB':
+        pil_image = pil_image.convert('RGB')
+        
+    rgb_array = np.array(pil_image)
+    # Convert RGB to BGR so Ultralytics YOLO preprocess (which flips BGR->RGB) gets correct colors
+    return cv2.cvtColor(rgb_array, cv2.COLOR_RGB2BGR)
 
-    @staticmethod
-    def base64_to_cv2(b64_str):
-        """Converts base64 data URI or raw base64 string to OpenCV BGR image array."""
-        if "," in b64_str:
-            b64_str = b64_str.split(",", 1)[1]
-        image_bytes = base64.b64decode(b64_str)
-        return ImageService.bytes_to_cv2(image_bytes)
+def encode_image_to_base64(bgr_image: np.ndarray, format: str = ".jpg") -> str:
+    """
+    Convert OpenCV BGR image to base64 data URL string.
+    """
+    success, buffer = cv2.imencode(format, bgr_image)
+    if not success:
+        raise ValueError("Failed to encode image to buffer")
+    b64_encoded = base64.b64encode(buffer).decode('utf-8')
+    mime_type = "image/jpeg" if format.lower() in [".jpg", ".jpeg"] else "image/png"
+    return f"data:{mime_type};base64,{b64_encoded}"
